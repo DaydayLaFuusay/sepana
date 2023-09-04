@@ -20,10 +20,10 @@ class Node:
 
     def tree(self, level=0):
         if level == 0:
-            ret = "project : " + repr(self.description) + "\n "
-            ret += "list of subtasks :" + "\n "
+            ret = "story : " + repr(self.description) + "\n "
+            ret += "storyline :" + "\n "
         else:
-            ret = "subtask " + str(level) + " : " + repr(self.description) + "\n "
+            ret = " -- " + repr(self.description) + "\n "
         # ret = ""
         for child in self.children:
             ret += child.tree(level + 1)
@@ -32,7 +32,7 @@ class Node:
 
 def generate_choices(root_node=None):
     message = [{"role": "user", "content": root_node.tree()},
-               {"role": "user", "content": """What could be the potential next subtask in order to achieve the project ? Output only a python list of strings (["..."], without "subtask") of 2 to 5 positive, realistic and safe possible propositions for the following subtask that could help solving the project. A realistic number of subtasks for the total project is around 8 steps."""}]
+               {"role": "user", "content": """What could be a potential next outcome for the storyline focused on finishing the story? Output only a python list of very detailed story strings (["..."], without "subtask") of 2 to 5 realistic and possible propositions for the following outcome of the storyline. Each of them should be realistic and very specific. A realistic number of outcomes for the total storyline is around 10 steps."""}]
     print(message)
     response = openai.ChatCompletion.create(
         model="gpt-4",
@@ -52,7 +52,7 @@ def generate_choices(root_node=None):
 
 def check_if_project_is_finished(root_node):
     message = [{"role": "user",
-                "content": root_node.tree() + """\n -- \n Is the list of subtasks enough to finish the project? output 'STOP' if yes or 'CONTINUE' if not or empty."""}]
+                "content": root_node.tree() + """\n -- \n Is the storyline enough to finish the story? it should at least 8 steps long and have a final conclusion. Output 'STOP' if yes or 'CONTINUE' if not or empty."""}]
     print(message)
     response = openai.ChatCompletion.create(
         model="gpt-4",
@@ -68,7 +68,7 @@ def pick_choice(choices, user_choices):
     print(type(user_choices), user_choices)
     if user_choices.any():
         message = [{"role": "user", "content": "here is a list of previous project and choices of the users: " + str(user_choices)},
-               {"role": "user", "content": "output only a directly one single choice as a string from the following list of new choices while  trying to mimic previous user behaviours : " + str(choices)}]
+               {"role": "user", "content": "output only a directly one single choice as a string from the following list of new choices while trying to mimic previous user behaviours : " + str(choices)}]
     else:
         message = [{"role": "user",
                     "content": "output only a directly a random legit choice from the following choices : " + str(
@@ -177,13 +177,15 @@ if (len(worker) > 1) and (not st.session_state.stop) and (len(username) > 2) and
             for index, choice in enumerate(choices):
                 st.button(f"{index + 1}. {choice}", on_click=troll, kwargs={'index': index})
     if worker == "Automatic":
+        stop_check_clock = True
         if "root" not in st.session_state:
             st.session_state.root = Node(project)
         if "current_node" not in st.session_state:
             st.session_state.current_node = st.session_state.root
         while True and not st.session_state.stop:
-            try:
-                stop_check = check_if_project_is_finished(st.session_state.root)
+            # try:
+                if stop_check_clock:
+                    stop_check = check_if_project_is_finished(st.session_state.root)
                 print(stop_check)
                 if ("STOP" in stop_check):
                     st.session_state.stop = True
@@ -192,7 +194,12 @@ if (len(worker) > 1) and (not st.session_state.stop) and (len(username) > 2) and
                     st.write("Project succesful !")
                     break
                 else:
-                    choices = generate_choices(st.session_state.root)
+                    while True:
+                        try:
+                            choices = generate_choices(st.session_state.root)
+                            break
+                        except:
+                            pass
                     user_choices = load_flows(username)
                     choice = pick_choice(choices, user_choices)
                     chosen_description = choice
@@ -201,6 +208,9 @@ if (len(worker) > 1) and (not st.session_state.stop) and (len(username) > 2) and
                     st.session_state.choices_made += [chosen_description]
                     st.session_state.current_node = chosen_node
                     st.write(chosen_description)
-            except:
-                pass
+                    stop_check_clock = True
+            # except:
+            #     stop_check_clock = False
+            #     st.write("quick bug")
+
 
